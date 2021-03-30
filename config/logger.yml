@@ -1,0 +1,12 @@
+default: stack
+channels:
+  - stack:
+      channels:
+        - file
+        - http
+  - file:
+      path: /logs
+      level: debug
+  - http:
+      path: https://logpath.com/
+      level: emergency

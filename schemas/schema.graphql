@@ -1,0 +1,52 @@
+# @IsGranted limits access to users, using roles
+directive @isGranted(roles: [Roles]!) on QUERY | MUTATION | FIELD_DEFINITION
+
+enum Roles {
+    ANONYMOUS,
+    STUDENT,
+    TEACHER,
+    ROOT
+}
+
+enum OrganisationType {
+    SCHOOL,
+    UNIVERSITY,
+    COLLEGE
+}
+
+type User {
+    id: ID!
+    email: String!
+    firstName: String!
+    lastName: String!
+    role: Roles
+    organisation: Organisation!
+    group: Group!
+    courses: [Course]
+}
+
+type Group {
+    id: ID!
+    name: String!
+    headman: User!
+    students: [User]!
+}
+
+type Organisation {
+    id: ID!
+    type: OrganisationType!
+    name: String!
+    members: [User]!
+}
+
+type Course {
+    id: ID!
+    name: String!
+    organisation: Organisation!
+    members: [User]
+}
+
+type Query {
+    user(id: ID!): User @isGranted(roles: [STUDENT, TEACHER, ROOT])
+    course(id: ID!): Course
+}
