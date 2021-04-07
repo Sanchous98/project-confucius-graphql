@@ -81,8 +81,8 @@ func (g *GraphQL) Constructor() {
 		EntryPoint: stdlib.EntryPoint{
 			Routes: []*stdlib.Route{
 				{stdlib.MethodGet, "/api", g.queryHandler},
-				{stdlib.MethodGet, "/graphiql", g.handleGraphiQL(g.config.SchemaPath)},
-				{stdlib.MethodPost, "/graphiql", g.handleGraphiQL(g.config.SchemaPath)},
+				{stdlib.MethodGet, "/graphiql", g.HandleGraphiQL(g.config.SchemaPath)},
+				{stdlib.MethodPost, "/graphiql", g.HandleGraphiQL(g.config.SchemaPath)},
 			},
 			Name: "main",
 		},
@@ -106,8 +106,8 @@ func (g *GraphQL) resolveSchema(schemaContent []byte) *graphql.Schema {
 	return &schema
 }
 
-// handleGraphiQL provides GraphiQL playground
-func (g *GraphQL) handleGraphiQL(schemaPath string) fasthttp.RequestHandler {
+// HandleGraphiQL provides GraphiQL playground
+func (g *GraphQL) HandleGraphiQL(schemaPath string) fasthttp.RequestHandler {
 	file, err := filepath.Abs(schemaPath)
 
 	if err != nil {
