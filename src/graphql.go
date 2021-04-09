@@ -12,8 +12,8 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"reflect"
 )
@@ -114,7 +114,7 @@ func (g *GraphQL) HandleGraphiQL(schemaPath string) fasthttp.RequestHandler {
 		g.Log.Alert(err)
 	}
 
-	schema, err := ioutil.ReadFile(file)
+	schema, err := os.ReadFile(file)
 
 	if err != nil {
 		g.Log.Alert(fmt.Errorf("cannot open schema file: %v\n", err))
@@ -130,7 +130,7 @@ func (g *GraphQL) HandleGraphiQL(schemaPath string) fasthttp.RequestHandler {
 
 // queryHandler is a function that handles GraphQL queries
 func (g *GraphQL) queryHandler(context *fasthttp.RequestCtx) {
-	b, err := ioutil.ReadFile(g.config.SchemaPath)
+	b, err := os.ReadFile(g.config.SchemaPath)
 
 	if err != nil {
 		g.Log.Alert(fmt.Errorf("schema file doesn't exist"))
@@ -147,7 +147,6 @@ func (g *GraphQL) queryHandler(context *fasthttp.RequestCtx) {
 		g.Log.Info(fmt.Errorf("failed to execute graphql operation, errors: %+v", response.Errors))
 	}
 
-	//writer.Header().Set("X-CSRF-Token", csrf.Token(context))
 	jsonResponse, _ := json.Marshal(response)
 	log.Print(context.Write(jsonResponse))
 }
