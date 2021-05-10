@@ -43,17 +43,11 @@ type (
 		SchemaPath string `yaml:"schema_path"`
 	}
 
-	GraphEntryPoint struct {
-		stdlib.EntryPoint
-		SchemaPath string
-	}
-
 	GraphQL struct {
-		config      *graphQLConfig
-		directives  tools.SchemaDirectiveVisitorMap
-		Web         *stdlib.Web `inject:""`
-		Log         *stdlib.Log `inject:""`
-		entryPoints []*GraphEntryPoint
+		config     *graphQLConfig
+		directives tools.SchemaDirectiveVisitorMap
+		Web        *stdlib.Web `inject:""`
+		Log        *stdlib.Log `inject:""`
 	}
 )
 
@@ -66,7 +60,7 @@ func (g *GraphQL) Constructor() {
 	err := g.config.Unmarshall()
 
 	if err != nil {
-		panic(err)
+		g.Log.Alert(err)
 	}
 
 	if g.directives == nil {
@@ -77,25 +71,51 @@ func (g *GraphQL) Constructor() {
 		g.AddDirective(name, directive)
 	}
 
-	g.AddEntryPoint(&GraphEntryPoint{
-		EntryPoint: stdlib.EntryPoint{
-			Routes: []*stdlib.Route{
-				{stdlib.MethodGet, "/api", g.queryHandler},
-				{stdlib.MethodGet, "/graphiql", g.HandleGraphiQL(g.config.SchemaPath)},
-				{stdlib.MethodPost, "/graphiql", g.HandleGraphiQL(g.config.SchemaPath)},
-			},
-			Name: "main",
+	g.Web.AddEntryPoint(g.NewEntryPoint(
+		"main",
+		g.config.SchemaPath,
+		"",
+		&stdlib.Route{
+			Method:  stdlib.MethodGet,
+			Path:    "/api",
+			Handler: g.queryHandler,
 		},
-		SchemaPath: g.config.SchemaPath,
-	})
+		true,
+	), graphQLEntryPointGroup)
 }
 
-func (g *GraphQL) Destructor() {}
+// NewEntryPoint creates GraphQL entrypoint
+func (g *GraphQL) NewEntryPoint(name, schemaPath, routePrefix string, route *stdlib.Route, enableGraphiQL bool, middleware ...stdlib.Middleware) *stdlib.EntryPoint {
+	routes := []*stdlib.Route{route}
+
+	if enableGraphiQL {
+		routes = append(
+			routes,
+			&stdlib.Route{
+				Method:  stdlib.MethodGet,
+				Path:    route.Path + "/graphiql",
+				Handler: g.handleGraphiQL(schemaPath),
+			},
+			&stdlib.Route{
+				Method:  stdlib.MethodPost,
+				Path:    route.Path + "/graphiql",
+				Handler: g.handleGraphiQL(schemaPath),
+			},
+		)
+	}
+
+	return &stdlib.EntryPoint{
+		Routes:      routes,
+		Name:        name,
+		RoutePrefix: routePrefix,
+		Middlewares: middleware,
+	}
+}
 
 // resolveSchema initializes GraphQL server configuration, based on schema file and predefined resolvers and directives
-func (g *GraphQL) resolveSchema(schemaContent []byte) *graphql.Schema {
+func (g *GraphQL) resolveSchema(schemaContent string) *graphql.Schema {
 	schema, err := tools.MakeExecutableSchema(tools.ExecutableSchema{
-		TypeDefs:         string(schemaContent),
+		TypeDefs:         schemaContent,
 		SchemaDirectives: g.directives,
 	})
 
@@ -106,8 +126,8 @@ func (g *GraphQL) resolveSchema(schemaContent []byte) *graphql.Schema {
 	return &schema
 }
 
-// HandleGraphiQL provides GraphiQL playground
-func (g *GraphQL) HandleGraphiQL(schemaPath string) fasthttp.RequestHandler {
+// handleGraphiQL provides GraphiQL playground
+func (g *GraphQL) handleGraphiQL(schemaPath string) fasthttp.RequestHandler {
 	file, err := filepath.Abs(schemaPath)
 
 	if err != nil {
@@ -121,7 +141,7 @@ func (g *GraphQL) HandleGraphiQL(schemaPath string) fasthttp.RequestHandler {
 	}
 
 	return fasthttpadaptor.NewFastHTTPHandler(handler.New(&handler.Config{
-		Schema:     g.resolveSchema(schema),
+		Schema:     g.resolveSchema(string(schema)),
 		Pretty:     true,
 		GraphiQL:   true,
 		Playground: true,
@@ -139,7 +159,7 @@ func (g *GraphQL) queryHandler(context *fasthttp.RequestCtx) {
 	query := context.Request.Body()
 
 	response := graphql.Do(graphql.Params{
-		Schema:        *g.resolveSchema(b),
+		Schema:        *g.resolveSchema(string(b)),
 		RequestString: string(query),
 	})
 
@@ -204,33 +224,6 @@ func (g *GraphQL) DropDirective(name string) {
 func (g *GraphQL) DirectiveExists(name string) bool {
 	for directiveName := range g.directives {
 		if name == directiveName {
-			return true
-		}
-	}
-
-	return false
-}
-
-// AddEntryPoint adds a GraphQL entrypoint dynamically
-func (g *GraphQL) AddEntryPoint(entryPoint *GraphEntryPoint) {
-	g.entryPoints = append(g.entryPoints, entryPoint)
-	g.Web.AddEntryPoint(&entryPoint.EntryPoint, graphQLEntryPointGroup)
-}
-
-// DropEntryPoint drops GraphQL entrypoint dynamically
-func (g *GraphQL) DropEntryPoint(name string) {
-	for index, entryPoint := range g.entryPoints {
-		if entryPoint.Name == name {
-			g.entryPoints = append(g.entryPoints[:index], g.entryPoints[index+1:]...)
-			return
-		}
-	}
-}
-
-// EntryPointExists checks, if GraphQL entrypoint dynamically
-func (g *GraphQL) EntryPointExists(name string) bool {
-	for _, entryPoint := range g.entryPoints {
-		if entryPoint.Name == name {
 			return true
 		}
 	}
