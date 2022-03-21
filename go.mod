@@ -8,6 +8,6 @@ require (
 	github.com/graphql-go/graphql v0.7.9
 	github.com/graphql-go/handler v0.2.3
 	github.com/stretchr/testify v1.7.0
-	github.com/valyala/fasthttp v1.24.0
+	github.com/valyala/fasthttp v1.34.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
